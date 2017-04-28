@@ -1,5 +1,5 @@
 {
-  "name": "rnpm-plugin-link",
+  "name": "rnpm-plugin-link-image",
   "version": "1.8.0",
   "description": "rnpm plugin that links native dependencies to your project",
   "main": "index.js",
