@@ -1,10 +1,11 @@
-const path = require('path');
 const log = require('npmlog');
 
 const getProjectDependencies = require('./getProjectDependencies');
 const unregisterDependencyAndroid = require('./android/unregisterNativeModule');
+const unregisterDependencyWindows = require('./windows/unregisterNativeModule');
 const unregisterDependencyIOS = require('./ios/unregisterNativeModule');
 const isInstalledAndroid = require('./android/isInstalled');
+const isInstalledWindows = require('./windows/isInstalled');
 const isInstalledIOS = require('./ios/isInstalled');
 const unlinkAssetsAndroid = require('./android/unlinkAssets');
 const unlinkAssetsIOS = require('./ios/unlinkAssets');
@@ -12,7 +13,12 @@ const getDependencyConfig = require('./getDependencyConfig');
 const compact = require('lodash').compact;
 const difference = require('lodash').difference;
 const filter = require('lodash').filter;
+const find = require('lodash').find;
+const flatten = require('lodash').flatten;
 const isEmpty = require('lodash').isEmpty;
+const promiseWaterfall = require('./promiseWaterfall');
+const commandStub = require('./commandStub');
+const promisify = require('./promisify');
 
 log.heading = 'rnpm-link';
 
@@ -33,6 +39,25 @@ const unlinkDependencyAndroid = (androidProject, dependency, packageName) => {
   unregisterDependencyAndroid(packageName, dependency.android, androidProject);
 
   log.info(`Android module ${packageName} has been successfully unlinked`);
+};
+
+const unlinkDependencyWindows = (windowsProject, dependency, packageName) => {
+  if (!windowsProject || !dependency.windows) {
+    return;
+  }
+
+  const isInstalled = isInstalledWindows(windowsProject, dependency.windows);
+
+  if (!isInstalled) {
+    log.info(`Windows module ${packageName} is not installed`);
+    return;
+  }
+
+  log.info(`Unlinking ${packageName} windows dependency`);
+
+  unregisterDependencyWindows(packageName, dependency.windows, windowsProject);
+
+  log.info(`Windows module ${packageName} has been successfully unlinked`);
 };
 
 const unlinkDependencyIOS = (iOSProject, dependency, packageName, iOSDependencies) => {
@@ -60,7 +85,7 @@ const unlinkDependencyIOS = (iOSProject, dependency, packageName, iOSDependencie
  * If optional argument [packageName] is provided, it's the only one
  * that's checked
  */
-module.exports = function unlink(config, args) {
+function unlink(args, config) {
   const packageName = args[0];
 
   var project;
@@ -90,34 +115,51 @@ module.exports = function unlink(config, args) {
   const otherDependencies = filter(allDependencies, d => d.name !== packageName);
   const iOSDependencies = compact(otherDependencies.map(d => d.config.ios));
 
-  unlinkDependencyAndroid(project.android, dependency, packageName);
-  unlinkDependencyIOS(project.ios, dependency, packageName, iOSDependencies);
+  const tasks = [
+    () => promisify(dependency.commands.preunlink || commandStub),
+    () => unlinkDependencyAndroid(project.android, dependency, packageName),
+    () => unlinkDependencyIOS(project.ios, dependency, packageName, iOSDependencies),
+    () => unlinkDependencyWindows(project.windows, dependency, packageName),
+    () => promisify(dependency.commands.postunlink || commandStub)
+  ];
 
-  const assets = difference(
-    dependency.assets,
-    otherDependencies.reduce(
-      (assets, dependency) => assets.concat(dependency.config.assets),
-      project.assets
-    )
-  );
+  return promiseWaterfall(tasks)
+    .then(() => {
+      // @todo move all these to `tasks` array, just like in
+      // link
+      const assets = difference(
+        dependency.assets,
+        flatten(allDependencies, d => d.assets)
+      );
 
-  if (isEmpty(assets)) {
-    return Promise.resolve();
-  }
+      if (isEmpty(assets)) {
+        return Promise.resolve();
+      }
 
-  if (project.ios) {
-    log.info('Unlinking assets from ios project');
-    unlinkAssetsIOS(assets, project.ios);
-  }
+      if (project.ios) {
+        log.info('Unlinking assets from ios project');
+        unlinkAssetsIOS(assets, project.ios);
+      }
 
-  if (project.android) {
-    log.info('Unlinking assets from android project');
-    unlinkAssetsAndroid(assets, project.android.assetsPath);
-  }
+      if (project.android) {
+        log.info('Unlinking assets from android project');
+        unlinkAssetsAndroid(assets, project.android.assetsPath);
+      }
 
-  log.info(
-    `${packageName} assets has been successfully unlinked from your project`
-  );
+      log.info(
+        `${packageName} assets has been successfully unlinked from your project`
+      );
+    })
+    .catch(err => {
+      log.error(
+        `It seems something went wrong while unlinking. Error: ${err.message}`
+      );
+      throw err;
+    });
+};
 
-  return Promise.resolve();
+module.exports = {
+  func: unlink,
+  description: 'unlink native dependency',
+  name: 'unlink <packageName>',
 };

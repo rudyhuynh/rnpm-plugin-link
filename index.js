@@ -1,9 +1,11 @@
 module.exports = [{
   func: require('./src/link'),
-  description: 'Links all native dependencies',
-  name: 'link-image [packageName]',
+  description: 'Links images',
+  name: 'link-images [packageName]',
 }, {
   func: require('./src/unlink'),
-  description: 'Unlink native dependency',
-  name: 'unlink-image <packageName>',
+  description: 'Unlink images',
+  name: 'unlink-images <packageName>',
 }];
+
+// abc def

@@ -10,6 +10,7 @@ module.exports = function getDependencyConfig(config, deps) {
         name,
       });
     } catch (err) {
+      console.log(err);
       return acc;
     }
   }, []);

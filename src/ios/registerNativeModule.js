@@ -8,11 +8,11 @@ const getHeadersInFolder = require('./getHeadersInFolder');
 const getHeaderSearchPath = require('./getHeaderSearchPath');
 const getProducts = require('./getProducts');
 const createGroupWithMessage = require('./createGroupWithMessage');
-const hasLibraryImported = require('./hasLibraryImported');
 const addFileToProject = require('./addFileToProject');
 const addProjectToLibraries = require('./addProjectToLibraries');
 const addSharedLibraries = require('./addSharedLibraries');
 const isEmpty = require('lodash').isEmpty;
+const getGroup = require('./getGroup');
 
 /**
  * Register native module IOS adds given dependency to project by adding
@@ -26,7 +26,6 @@ module.exports = function registerNativeModuleIOS(dependencyConfig, projectConfi
   const dependencyProject = xcode.project(dependencyConfig.pbxprojPath).parseSync();
 
   const libraries = createGroupWithMessage(project, projectConfig.libraryFolder);
-
   const file = addFileToProject(
     project,
     path.relative(projectConfig.sourceDir, dependencyConfig.projectPath)

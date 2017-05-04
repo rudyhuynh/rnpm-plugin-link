@@ -10,22 +10,16 @@ const getPlistPath = require('./getPlistPath');
 
 /**
  * This function works in a similar manner to its Android version,
- * except it does not copy fonts but creates XCode Group references
+ * except it does not copy fonts but creates Xcode Group references
  */
 module.exports = function linkAssetsIOS(files, projectConfig) {
   const project = xcode.project(projectConfig.pbxprojPath).parseSync();
+  const assets = groupFilesByType(files);
   const plist = getPlist(project, projectConfig.sourceDir);
-
-  if (!plist) {
-    return log.error(
-      'ERRPLIST',
-      `Could not locate Info.plist. Check if your project has 'INFOPLIST_FILE' set properly`
-    );
-  }
 
   createGroupWithMessage(project, 'Resources');
 
-  const assets = files
+  const fonts = (assets.font || [])
     .map(asset =>
       project.addResourceFile(
         path.relative(projectConfig.sourceDir, asset),
@@ -35,9 +29,9 @@ module.exports = function linkAssetsIOS(files, projectConfig) {
     .filter(file => file)   // xcode returns false if file is already there
     .map(file => file.basename);
 
-  const assetsByType = groupFilesByType(assets);
-
-  plist.UIAppFonts = (plist.UIAppFonts || []).concat(assetsByType.font || []);
+  const existingFonts = (plist.UIAppFonts || []);
+  const allFonts = [...existingFonts, ...fonts];
+  plist.UIAppFonts = Array.from(new Set(allFonts)); // use Set to dedupe w/existing
 
   fs.writeFileSync(
     projectConfig.pbxprojPath,

@@ -1,9 +1,5 @@
-const getGroup = require('./getGroup');
-
 module.exports = function removeSharedLibraries(project, libraries) {
-  const group = getGroup(project, 'Frameworks');
-
-  if (!libraries.length || !group) {
+  if (!libraries.length) {
     return;
   }
 

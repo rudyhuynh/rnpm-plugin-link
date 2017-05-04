@@ -14,6 +14,7 @@ const difference = require('lodash').difference;
  */
 module.exports = function unlinkAssetsIOS(files, projectConfig) {
   const project = xcode.project(projectConfig.pbxprojPath).parseSync();
+  const assets = groupFilesByType(files);
   const plist = getPlist(project, projectConfig.sourceDir);
 
   if (!plist) {
@@ -26,11 +27,11 @@ module.exports = function unlinkAssetsIOS(files, projectConfig) {
   if (!project.pbxGroupByName('Resources')) {
     return log.error(
       'ERRGROUP',
-      `Group 'Resources' does not exist in your XCode project. There is nothing to unlink.`
+      `Group 'Resources' does not exist in your Xcode project. There is nothing to unlink.`
     );
   }
 
-  const assets = files
+  const fonts = (assets.font || [])
     .map(asset =>
       project.removeResourceFile(
         path.relative(projectConfig.sourceDir, asset),
@@ -39,9 +40,7 @@ module.exports = function unlinkAssetsIOS(files, projectConfig) {
     )
     .map(file => file.basename);
 
-  const assetsByType = groupFilesByType(assets);
-
-  plist.UIAppFonts = difference(plist.UIAppFonts || [], assetsByType.font);
+  plist.UIAppFonts = difference(plist.UIAppFonts || [], fonts);
 
   fs.writeFileSync(
     projectConfig.pbxprojPath,

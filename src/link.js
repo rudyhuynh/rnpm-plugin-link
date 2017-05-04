@@ -1,29 +1,42 @@
+/**
+ * Copyright (c) 2013-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @flow
+ */
+
 const log = require('npmlog');
 const path = require('path');
 const uniq = require('lodash').uniq;
 const flatten = require('lodash').flatten;
-const pkg = require('../package.json');
+const chalk = require('chalk');
 
 const isEmpty = require('lodash').isEmpty;
 const promiseWaterfall = require('./promiseWaterfall');
 const registerDependencyAndroid = require('./android/registerNativeModule');
+const registerDependencyWindows = require('./windows/registerNativeModule');
 const registerDependencyIOS = require('./ios/registerNativeModule');
 const isInstalledAndroid = require('./android/isInstalled');
+const isInstalledWindows = require('./windows/isInstalled');
 const isInstalledIOS = require('./ios/isInstalled');
 const copyAssetsAndroid = require('./android/copyAssets');
 const copyAssetsIOS = require('./ios/copyAssets');
 const getProjectDependencies = require('./getProjectDependencies');
 const getDependencyConfig = require('./getDependencyConfig');
 const pollParams = require('./pollParams');
+const commandStub = require('./commandStub');
+const promisify = require('./promisify');
+
+import type {ConfigT} from '../core';
 
 log.heading = 'rnpm-link';
 
-const commandStub = (cb) => cb();
 const dedupeAssets = (assets) => uniq(assets, asset => path.basename(asset));
 
-const promisify = (func) => new Promise((resolve, reject) =>
-  func((err, res) => err ? reject(err) : resolve(res))
-);
 
 const linkDependencyAndroid = (androidProject, dependency) => {
   if (!androidProject || !dependency.config.android) {
@@ -33,7 +46,7 @@ const linkDependencyAndroid = (androidProject, dependency) => {
   const isInstalled = isInstalledAndroid(androidProject, dependency.name);
 
   if (isInstalled) {
-    log.info(`Android module ${dependency.name} is already linked`);
+    log.info(chalk.grey(`Android module ${dependency.name} is already linked`));
     return null;
   }
 
@@ -51,6 +64,33 @@ const linkDependencyAndroid = (androidProject, dependency) => {
   });
 };
 
+const linkDependencyWindows = (windowsProject, dependency) => {
+
+  if (!windowsProject || !dependency.config.windows) {
+    return null;
+  }
+
+  const isInstalled = isInstalledWindows(windowsProject, dependency.config.windows);
+
+  if (isInstalled) {
+    log.info(chalk.grey(`Windows module ${dependency.name} is already linked`));
+    return null;
+  }
+
+  return pollParams(dependency.config.params).then(params => {
+    log.info(`Linking ${dependency.name} windows dependency`);
+
+    registerDependencyWindows(
+      dependency.name,
+      dependency.config.windows,
+      params,
+      windowsProject
+    );
+
+    log.info(`Windows module ${dependency.name} has been successfully linked`);
+  });
+};
+
 const linkDependencyIOS = (iOSProject, dependency) => {
   if (!iOSProject || !dependency.config.ios) {
     return;
@@ -59,7 +99,7 @@ const linkDependencyIOS = (iOSProject, dependency) => {
   const isInstalled = isInstalledIOS(iOSProject, dependency.config.ios);
 
   if (isInstalled) {
-    log.info(`iOS module ${dependency.name} is already linked`);
+    log.info(chalk.grey(`iOS module ${dependency.name} is already linked`));
     return;
   }
 
@@ -85,28 +125,33 @@ const linkAssets = (project, assets) => {
     copyAssetsAndroid(assets, project.android.assetsPath);
   }
 
-  log.info(`Assets has been successfully linked to your project`);
+  log.info('Assets have been successfully linked to your project');
 };
 
 /**
- * Updates project and linkes all dependencies to it
+ * Updates project and links all dependencies to it.
  *
- * If optional argument [packageName] is provided, it's the only one that's checked
+ * @param args If optional argument [packageName] is provided,
+ *             only that package is processed.
+ * @param config CLI config, see local-cli/core/index.js
  */
-module.exports = function link(config, args) {
-  console.log('my link')
+function link(args: Array<string>, config: ConfigT) {
   var project;
   try {
     project = config.getProjectConfig();
   } catch (err) {
     log.error(
       'ERRPACKAGEJSON',
-      'No package found. Are you sure it\'s a React Native project?'
+      'No package found. Are you sure this is a React Native project?'
     );
     return Promise.reject(err);
   }
 
-  const packageName = args[0];
+  let packageName = args[0];
+  // Check if install package by specific version (eg. package@latest)
+  if (packageName !== undefined) {
+    packageName = packageName.split('@')[0];
+  }
 
   const dependencies = getDependencyConfig(
     config,
@@ -122,6 +167,7 @@ module.exports = function link(config, args) {
     () => promisify(dependency.config.commands.prelink || commandStub),
     () => linkDependencyAndroid(project.android, dependency),
     () => linkDependencyIOS(project.ios, dependency),
+    () => linkDependencyWindows(project.windows, dependency),
     () => promisify(dependency.config.commands.postlink || commandStub),
   ]));
 
@@ -129,9 +175,15 @@ module.exports = function link(config, args) {
 
   return promiseWaterfall(tasks).catch(err => {
     log.error(
-      `It seems something went wrong while linking. Error: ${err.message} \n`
-      + `Please file an issue here: ${pkg.bugs.url}`
+      `Something went wrong while linking. Error: ${err.message} \n` +
+      'Please file an issue here: https://github.com/facebook/react-native/issues'
     );
     throw err;
   });
+}
+
+module.exports = {
+  func: link,
+  description: 'links all native dependencies (updates native build files)',
+  name: 'link [packageName]',
 };
