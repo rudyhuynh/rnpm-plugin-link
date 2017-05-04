@@ -2,7 +2,7 @@
   "name": "rnpm-plugin-link-images",
   "version": "1.8.0",
   "description": "rnpm plugin that links native dependencies to your project",
-  "main": "lib/index.js",
+  "main": "index.js",
   "scripts": {
     "test": "eslint ./ && mocha ./test --recursive",
     "webpack": "webpack"

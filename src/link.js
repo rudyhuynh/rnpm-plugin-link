@@ -31,7 +31,7 @@ const pollParams = require('./pollParams');
 const commandStub = require('./commandStub');
 const promisify = require('./promisify');
 
-import type {ConfigT} from '../core';
+//import type {ConfigT} from '../core';
 
 log.heading = 'rnpm-link';
 
@@ -110,22 +110,22 @@ const linkDependencyIOS = (iOSProject, dependency) => {
   log.info(`iOS module ${dependency.name} has been successfully linked`);
 };
 
-const linkAssets = (project, assets) => {
+const linkImagesPerProject = (project, assets) => {
   if (isEmpty(assets)) {
     return;
   }
 
   if (project.ios) {
-    log.info('Linking assets to ios project');
-    copyAssetsIOS(assets, project.ios);
+    log.warn('Linking images to ios project not support yet');
+    //copyAssetsIOS(assets, project.ios);
   }
 
   if (project.android) {
-    log.info('Linking assets to android project');
-    copyAssetsAndroid(assets, project.android.assetsPath);
+    log.info('Linking images to android project');
+    copyAssetsAndroid(assets, path.resolve(project.android.assetsPath, '../res/drawable'));
   }
 
-  log.info('Assets have been successfully linked to your project');
+  log.info('Images have been successfully linked to your project');
 };
 
 /**
@@ -135,7 +135,8 @@ const linkAssets = (project, assets) => {
  *             only that package is processed.
  * @param config CLI config, see local-cli/core/index.js
  */
-function link(args: Array<string>, config: ConfigT) {
+function linkImages(args, config) {
+  console.log('my link')
   var project;
   try {
     project = config.getProjectConfig();
@@ -163,15 +164,17 @@ function link(args: Array<string>, config: ConfigT) {
     project.assets
   ));
 
-  const tasks = flatten(dependencies.map(dependency => [
-    () => promisify(dependency.config.commands.prelink || commandStub),
-    () => linkDependencyAndroid(project.android, dependency),
-    () => linkDependencyIOS(project.ios, dependency),
-    () => linkDependencyWindows(project.windows, dependency),
-    () => promisify(dependency.config.commands.postlink || commandStub),
-  ]));
+  // const tasks = flatten(dependencies.map(dependency => [
+  //   () => promisify(dependency.config.commands.prelink || commandStub),
+  //   () => linkDependencyAndroid(project.android, dependency),
+  //   () => linkDependencyIOS(project.ios, dependency),
+  //   () => linkDependencyWindows(project.windows, dependency),
+  //   () => promisify(dependency.config.commands.postlink || commandStub),
+  // ]));
 
-  tasks.push(() => linkAssets(project, assets));
+  const tasks = []
+
+  tasks.push(() => linkImagesPerProject(project, assets));
 
   return promiseWaterfall(tasks).catch(err => {
     log.error(
@@ -182,8 +185,8 @@ function link(args: Array<string>, config: ConfigT) {
   });
 }
 
-module.exports = {
+module.exports = linkImages/*{
   func: link,
   description: 'links all native dependencies (updates native build files)',
   name: 'link [packageName]',
-};
+};*/

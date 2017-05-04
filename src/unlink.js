@@ -158,8 +158,8 @@ function unlink(args, config) {
     });
 };
 
-module.exports = {
+module.exports = unlink/*{
   func: unlink,
   description: 'unlink native dependency',
   name: 'unlink <packageName>',
-};
+};*/
