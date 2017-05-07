@@ -13,9 +13,9 @@ npm install rudyhuynh/rnpm-plugin-link-images@v2.0.0 --save-dev
 * Update your `package.json` where `src/assets` is the path to your images directory:
 ````
 "rnpm": {
-	"assets": [
-		"src/assets"
-	]
+  "assets": [
+    "src/assets"
+  ]
 }
 ````
 * Run `react-native link-images`
