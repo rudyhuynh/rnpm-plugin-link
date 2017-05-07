@@ -116,8 +116,8 @@ const linkImagesPerProject = (project, assets) => {
   }
 
   if (project.ios) {
-    log.warn('Linking images to ios project not support yet');
-    //copyAssetsIOS(assets, project.ios);
+    log.info('Linking images to ios project');
+    copyAssetsIOS(assets, project.ios);
   }
 
   if (project.android) {

@@ -19,7 +19,9 @@ module.exports = function linkAssetsIOS(files, projectConfig) {
 
   createGroupWithMessage(project, 'Resources');
 
-  const fonts = (assets.font || [])
+  
+
+  (assets.image || [])
     .map(asset =>
       project.addResourceFile(
         path.relative(projectConfig.sourceDir, asset),
@@ -29,17 +31,17 @@ module.exports = function linkAssetsIOS(files, projectConfig) {
     .filter(file => file)   // xcode returns false if file is already there
     .map(file => file.basename);
 
-  const existingFonts = (plist.UIAppFonts || []);
-  const allFonts = [...existingFonts, ...fonts];
-  plist.UIAppFonts = Array.from(new Set(allFonts)); // use Set to dedupe w/existing
+  // const existingFonts = (plist.UIAppFonts || []);
+  // const allFonts = [...existingFonts, ...fonts];
+  // plist.UIAppFonts = Array.from(new Set(allFonts)); // use Set to dedupe w/existing
 
   fs.writeFileSync(
     projectConfig.pbxprojPath,
     project.writeSync()
   );
 
-  fs.writeFileSync(
-    getPlistPath(project, projectConfig.sourceDir),
-    plistParser.build(plist)
-  );
+  // fs.writeFileSync(
+  //   getPlistPath(project, projectConfig.sourceDir),
+  //   plistParser.build(plist)
+  // );
 };
